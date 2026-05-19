@@ -1,8 +1,10 @@
+// src/App.jsx
 import React, { useState, useMemo, useEffect } from 'react';
-import { Trophy, LogOut, ChevronRight, RotateCcw, Award, User, Users } from 'lucide-react';
+import { Trophy, LogOut, ChevronRight, RotateCcw, Award, User, Users, Frown } from 'lucide-react';
 import { MATHEMATICS_DATABASE } from './questionsData';
 import { supabase } from './supabaseClient';
 
+// تم تصحيح المسمى هنا ليعود بالعربي بالكامل داخل الخلايا السداسية
 const TOPICS = ['الباب الخامس', 'الباب السادس', 'الباب السابع', 'الباب الثامن'];
 const SUBJECT_ID = "MqMath22";
 
@@ -39,7 +41,8 @@ const CSS_STYLES = `
     outline: none;
     transition: border-color 0.3s;
   }
-  .input-field:focus { border-color: #3b82f6; }
+  /* الحفاظ على لون التركيز الأخضر في حقول النص لشاشة الدخول */
+  .input-field:focus { border-color: #10b981; }
 
   .hex-text { 
     font-weight: 900; 
@@ -78,7 +81,6 @@ function getNeighbors(r, c) {
   return neighbors;
 }
 
-// فحص وجود مسار متصل للاعب معين (رأسي أو أفقي)
 function checkWinningPath(grid, player, direction) {
   const playerTiles = grid.filter(t => t.owner === player);
   if (playerTiles.length === 0) return false;
@@ -115,11 +117,8 @@ function checkWinningPath(grid, player, direction) {
   return false;
 }
 
-// دالة خاصة بالنمط الفردي: تفحص هل ما زال بإمكان اللاعب الأخضر الوصول من الأعلى للأسفل؟
-// إذا كانت كل المسارات مغلقة بسبب اللون الأسود، تعود بـ true (أي تعذر إكمال المسار)
 function checkIsPathBlockedCompletely(grid) {
   const tileMap = Array.from({ length: GRID_SIZE }, () => Array(GRID_SIZE).fill(true));
-  // الخلايا المملوكة للمنافس (الأسود) نعتبرها مغلقة تماماً (false)
   grid.forEach(t => {
     if (t.owner === 'P2' || t.owner === 'BLACK') {
       tileMap[t.r][t.c] = false;
@@ -138,7 +137,7 @@ function checkIsPathBlockedCompletely(grid) {
 
   while (queue.length > 0) {
     const curr = queue.shift();
-    if (curr.r === GRID_SIZE - 1) return false; // ما زال هناك أمل ويوجد مسار مفتوح للأسفل
+    if (curr.r === GRID_SIZE - 1) return false; 
 
     for (const n of getNeighbors(curr.r, curr.c)) {
       if (tileMap[n.r][n.c] && !visited[n.r][n.c]) {
@@ -147,12 +146,12 @@ function checkIsPathBlockedCompletely(grid) {
       }
     }
   }
-  return true; // تعذر الوصول تماماً، اللوحة انقطعت!
+  return true; 
 }
 
 export default function App() {
   const [view, setView] = useState('START'); 
-  const [gameMode, setGameMode] = useState('SOLO'); // 'SOLO' أو 'MULTI'
+  const [gameMode, setGameMode] = useState('SOLO'); 
   const [pNames, setPNames] = useState({ p1: '', p2: '' });
   const [matchRounds, setMatchRounds] = useState(3);
   const [currentRound, setCurrentRound] = useState(1);
@@ -185,6 +184,11 @@ export default function App() {
       bg: { vSide: isP1Vertical ? '#10b981' : '#ef4444', hSide: isP1Vertical ? '#ef4444' : '#10b981' }
     };
   }, [currentRound, gameMode]);
+
+  const currentTurnColor = useMemo(() => {
+    if (gameMode === 'SOLO') return '#3b82f6'; 
+    return turn === 'P1' ? '#10b981' : '#ef4444'; 
+  }, [turn, gameMode]);
 
   const isFormValid = useMemo(() => {
     if (gameMode === 'SOLO') return pNames.p1.trim().length > 0;
@@ -233,7 +237,7 @@ export default function App() {
       }
     }
     setGrid(newGrid);
-    setTurn('P1');
+    setTurn(currentRound % 2 !== 0 ? 'P1' : 'P2');
     setRoundWinner(null);
   };
 
@@ -272,7 +276,6 @@ export default function App() {
 
   const checkGameStatus = (updatedGrid, dynamicTurn) => {
     if (gameMode === 'SOLO') {
-      // 1. فحص فوز اللاعب الفردي باكتمال مساره الرأسي
       const isPlayerWin = checkWinningPath(updatedGrid, 'P1', 'VERT');
       if (isPlayerWin) {
         const newScores = { ...scores, P1: scores.P1 + 1 };
@@ -282,26 +285,22 @@ export default function App() {
         return;
       }
 
-      // 2. فحص خسارة اللاعب الفردي بتعذر إكمال المسار بسبب الحواجز السوداء
       const isBlocked = checkIsPathBlockedCompletely(updatedGrid);
       if (isBlocked) {
-        const newScores = { ...scores, P2: scores.P2 + 1 }; // تحتسب جولة فوز للأسود
+        const newScores = { ...scores, P2: scores.P2 + 1 };
         setScores(newScores);
         setRoundWinner('BLACK');
         handleRoundTransition(newScores);
         return;
       }
-      
-      // في النمط الفردي، الدور دائماً يرجع لـ P1 حتى لو أخطأ
       setTurn('P1');
 
     } else {
-      // منطق نمط المتسابقين المشترك التقليدي
       const currentDirection = roundConfig[dynamicTurn].dir;
       const isWin = checkWinningPath(updatedGrid, dynamicTurn, currentDirection);
 
       if (isWin) {
-        const newScores = { ...scores, [dynamicTurn]: scores[turn] + 1 };
+        const newScores = { ...scores, [dynamicTurn]: scores[dynamicTurn] + 1 };
         setScores(newScores);
         setRoundWinner(dynamicTurn);
         handleRoundTransition(newScores);
@@ -330,20 +329,20 @@ export default function App() {
     const idx = newGrid.findIndex(t => t.id === activeQ.tile.id);
     
     if (opt === activeQ.ans) {
-      newGrid[idx].owner = 'P1';
+      newGrid[idx].owner = turn; 
       setGrid(newGrid);
       setActiveQ(null);
-      checkGameStatus(newGrid, 'P1');
+      checkGameStatus(newGrid, turn);
     } else {
-      // إذا أخطأ: تلون أسود في النمط الفردي، أو تذهب للمتسابق الثاني في النمط الزوجي
       if (gameMode === 'SOLO') {
         newGrid[idx].owner = 'BLACK';
         setGrid(newGrid);
         setActiveQ(null);
         checkGameStatus(newGrid, 'P1');
       } else {
+        const previousTurn = turn;
         setActiveQ(null);
-        checkGameStatus(newGrid, 'P1'); // يغير الدور لـ P2 داخل الدالة
+        checkGameStatus(newGrid, previousTurn); 
       }
     }
   };
@@ -355,36 +354,37 @@ export default function App() {
       {view === 'START' && (
         <div className="flex-1 flex flex-col items-center justify-center p-4 w-full h-full relative overflow-y-auto">
           
+          {/* الحفاظ على توهج نصوص الهوية العليا باللون الأخضر المشع البارز لشاشة الدخول */}
           <div className="absolute top-0 inset-x-0 p-6 flex justify-between items-center z-20">
-            <span className="bg-slate-900/60 px-6 py-3 rounded-2xl border border-blue-500/20 backdrop-blur-md text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-100 to-blue-300 drop-shadow-[0_0_12px_rgba(59,130,246,0.3)]">
+            <span className="bg-slate-900/60 px-6 py-3 rounded-2xl border border-emerald-500/20 backdrop-blur-md text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-100 to-emerald-300 drop-shadow-[0_0_12px_rgba(16,185,129,0.3)]">
               ثانوية رضوى
             </span>
-            <span className="bg-slate-900/60 px-6 py-3 rounded-2xl border border-blue-500/20 backdrop-blur-md text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-100 to-blue-300 drop-shadow-[0_0_12px_rgba(59,130,246,0.3)]">
+            <span className="bg-slate-900/60 px-6 py-3 rounded-2xl border border-emerald-500/20 backdrop-blur-md text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-100 to-emerald-300 drop-shadow-[0_0_12px_rgba(16,185,129,0.3)]">
               أ/ محمد القرني
             </span>
           </div>
 
+          {/* الحفاظ على تدرج نصوص العنوان باللون الأخضر المضيء لشاشة الدخول */}
           <div className="text-center space-y-4 mb-6 z-10 pt-20">
-            <h1 className="text-[clamp(2.5rem,8vw,5rem)] leading-none classic-title font-black text-transparent bg-clip-text bg-gradient-to-b from-blue-200 to-blue-500 drop-shadow-2xl">
+            <h1 className="text-[clamp(2.5rem,8vw,5rem)] leading-none classic-title font-black text-transparent bg-clip-text bg-gradient-to-b from-emerald-200 to-emerald-500 drop-shadow-2xl">
               مسابقة الرياضيات
             </h1>
-            <p className="text-blue-300 font-bold text-[clamp(1.2rem,3vw,1.8rem)] m-0">الصف الثاني الثانوي</p>
+            <p className="text-emerald-300 font-bold text-[clamp(1.2rem,3vw,1.8rem)] m-0">الصف الثاني الثانوي</p>
             <p className="text-white/60 text-sm md:text-base font-medium bg-slate-900/30 px-4 py-1 rounded-full inline-block border border-white/5">الفصل الدراسي الثاني</p>
           </div>
           
           <div className="glass-box p-8 rounded-[2rem] w-full max-w-xl flex flex-col gap-6 z-10 shadow-2xl">
             
-            {/* اختيار نمط اللعب */}
+            {/* الحفاظ على الألوان الخضراء لأزرار تحديد النمط الفردي أو الزوجي لشاشة الدخول */}
             <div className="grid grid-cols-2 gap-4">
-              <button type="button" onClick={() => setGameMode('SOLO')} className={`p-4 rounded-xl font-bold flex flex-col items-center justify-center gap-2 border-2 transition-all ${gameMode === 'SOLO' ? 'bg-blue-600/30 border-blue-500 shadow-md scale-105' : 'bg-slate-800/40 border-transparent'}`}>
+              <button type="button" onClick={() => setGameMode('SOLO')} className={`p-4 rounded-xl font-bold flex flex-col items-center justify-center gap-2 border-2 transition-all ${gameMode === 'SOLO' ? 'bg-emerald-600/20 border-emerald-500 shadow-md scale-105' : 'bg-slate-800/40 border-transparent'}`}>
                 <User size={24} /> متسابق واحد
               </button>
-              <button type="button" onClick={() => setGameMode('MULTI')} className={`p-4 rounded-xl font-bold flex flex-col items-center justify-center gap-2 border-2 transition-all ${gameMode === 'MULTI' ? 'bg-blue-600/30 border-blue-500 shadow-md scale-105' : 'bg-slate-800/40 border-transparent'}`}>
+              <button type="button" onClick={() => setGameMode('MULTI')} className={`p-4 rounded-xl font-bold flex flex-col items-center justify-center gap-2 border-2 transition-all ${gameMode === 'MULTI' ? 'bg-emerald-600/20 border-emerald-500 shadow-md scale-105' : 'bg-slate-800/40 border-transparent'}`}>
                 <Users size={24} /> متسابقان
               </button>
             </div>
 
-            {/* حقول الأسماء التفاعلية حسب النمط */}
             <div className="flex flex-col gap-4">
               {gameMode === 'SOLO' ? (
                 <input type="text" placeholder="اكتب اسمك هنا" className="input-field" value={pNames.p1} onChange={e => setPNames({...pNames, p1: e.target.value})} />
@@ -396,7 +396,8 @@ export default function App() {
               )}
             </div>
             
-            <button onClick={() => setView('ROUNDS')} disabled={!isFormValid} className="w-full bg-blue-600 hover:bg-blue-500 py-4 rounded-[1rem] font-black text-xl active:scale-95 transition-all shadow-lg disabled:opacity-40 flex items-center justify-center gap-2">
+            {/* الحفاظ على زر التالي باللون الأخضر الزمردي الجذاب */}
+            <button onClick={() => setView('ROUNDS')} disabled={!isFormValid} className="w-full bg-emerald-600 hover:bg-emerald-500 py-4 rounded-[1rem] font-black text-xl active:scale-95 transition-all shadow-lg disabled:opacity-40 flex items-center justify-center gap-2">
               التالي <ChevronRight className="rotate-180" />
             </button>
           </div>
@@ -407,9 +408,10 @@ export default function App() {
         <div className="flex-1 flex flex-col items-center justify-center p-4 w-full h-full animate-in fade-in">
           <Trophy size={100} className="text-yellow-500 mb-6 drop-shadow-[0_0_20px_rgba(234,179,8,0.4)]" />
           <h2 className="text-3xl font-black text-white classic-title mb-10 text-center">اختر طول المسابقة</h2>
+          {/* الحفاظ على أزرار الجولات باللون الأخضر المتناسق مع صفحة الدخول */}
           <div className="grid grid-cols-3 gap-4 w-full max-w-lg mb-10">
             {[1, 3, 5].map(num => (
-              <button key={num} onClick={() => setMatchRounds(num)} className={`flex flex-col items-center justify-center p-6 rounded-3xl border-2 transition-all ${matchRounds === num ? 'border-blue-500 bg-blue-900/40 shadow-[0_0_25px_rgba(59,130,246,0.4)] scale-105' : 'border-white/10 bg-slate-800/50'}`}>
+              <button key={num} onClick={() => setMatchRounds(num)} className={`flex flex-col items-center justify-center p-6 rounded-3xl border-2 transition-all ${matchRounds === num ? 'border-emerald-500 bg-emerald-950/40 shadow-[0_0_25px_rgba(16,185,129,0.4)] scale-105' : 'border-white/10 bg-slate-800/50'}`}>
                 <span className="text-4xl font-black text-white mb-2">{num}</span>
                 <span className="text-slate-400 font-bold text-sm">جولات</span>
               </button>
@@ -432,7 +434,7 @@ export default function App() {
                <div className="classic-title text-xl md:text-3xl whitespace-nowrap text-blue-400 leading-none">الجولة {currentRound}</div>
                <span className="text-[10px] md:text-xs text-slate-400 font-bold">من {matchRounds} جولات</span>
             </div>
-            <div className={`flex-1 h-full max-w-[200px] px-2 rounded-xl border-2 flex flex-col items-center justify-center transition-all ${turn === 'P2' && !roundWinner ? 'bg-slate-900/80 border-slate-700 scale-105' : 'opacity-40 border-transparent'}`}>
+            <div className={`flex-1 h-full max-w-[200px] px-2 rounded-xl border-2 flex flex-col items-center justify-center transition-all ${turn === 'P2' && !roundWinner ? 'bg-rose-500/30 border-rose-500 scale-105' : 'opacity-40 border-transparent'}`}>
               <span className="text-[10px] md:text-sm font-black opacity-80">{roundConfig.P2.label} (فوز: {scores.P2})</span>
               <div className="text-sm md:text-base font-black truncate w-full text-center">{gameMode === 'SOLO' ? 'عائق اللوحة' : pNames.p2}</div>
             </div>
@@ -442,10 +444,18 @@ export default function App() {
              {roundWinner && (
                 <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm animate-in fade-in">
                    <div className="text-center p-8 bg-slate-900/90 border border-white/20 rounded-3xl shadow-2xl max-w-md">
-                      <Trophy className="mx-auto text-yellow-500 mb-4" size={64} />
+                      {gameMode === 'SOLO' && roundWinner === 'BLACK' ? (
+                        <Frown className="mx-auto text-rose-500 mb-4 animate-bounce" size={64} />
+                      ) : (
+                        <Trophy className="mx-auto text-yellow-500 mb-4" size={64} />
+                      )}
                       <h2 className="text-3xl font-black text-white mb-2">نهاية الجولة!</h2>
                       <p className="text-xl text-slate-300">
-                        الفائز: <span className="font-extrabold text-blue-400">{roundWinner === 'P1' ? pNames.p1 : (gameMode === 'SOLO' ? 'عائق اللوحة الاسود' : pNames.p2)}</span>
+                        {gameMode === 'SOLO' && roundWinner === 'BLACK' ? (
+                          <span>للأسف خسرت هذه الجولة، حاول مرة أخرى!</span>
+                        ) : (
+                          <span>الفائز هو <span className="font-extrabold text-blue-400">{roundWinner === 'P1' ? pNames.p1 : pNames.p2}</span></span>
+                        )}
                       </p>
                    </div>
                 </div>
@@ -468,11 +478,10 @@ export default function App() {
                           const cx = (c.c * HEX_WIDTH) + xOff + (HEX_WIDTH / 2);
                           const cy = (c.r * VERT_DIST) + (HEX_HEIGHT / 2);
                           
-                          // تحديد لون الخلية بناءً على المالك
                           let hexColor = "#1e293b";
                           if (c.owner === 'P1') hexColor = "#10b981";
-                          else if (c.owner === 'P2') hexColor = "#ef4444";
-                          else if (c.owner === 'BLACK') hexColor = "#000000"; // تلوين الخلية بالأسود عند الخطأ في الفردي
+                          else if (c.owner === 'P2') hexColor = "#ef4444"; 
+                          else if (c.owner === 'BLACK') hexColor = "#000000";
 
                           return (
                           <g key={c.id}>
@@ -485,17 +494,35 @@ export default function App() {
                   </svg>
              </div>
           </main>
+          
+          <footer className="h-[60px] shrink-0 flex items-center justify-center z-20 glass-box border-t border-white/10 relative">
+             <button onClick={() => window.location.reload()} className="px-6 py-2 rounded-full text-slate-300 text-sm font-bold border border-white/10 bg-white/5 hover:bg-white/10 transition flex items-center gap-2">
+               <LogOut size={16}/> إنهاء المسابقة
+             </button>
+          </footer>
         </div>
       )}
 
       {view === 'MATCH_OVER' && (
         <div className="flex-1 flex flex-col items-center justify-center p-4 w-full h-full text-center space-y-6">
-          <Award size={120} className="text-yellow-400 drop-shadow-[0_0_30px_rgba(234,179,8,0.6)]" />
-          <h1 className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-200 to-yellow-500 classic-title">انتهاء المسابقة الكاملة!</h1>
-          <p className="text-2xl font-bold">الفائز النهائي بالتحدي:</p>
-          <div className="text-4xl font-black bg-blue-600/30 border border-blue-500/50 px-12 py-4 rounded-2xl shadow-lg">
-             {scores.P1 > scores.P2 ? pNames.p1 : (gameMode === 'SOLO' ? 'عائق اللوحة' : pNames.p2)}
-          </div>
+          {gameMode === 'SOLO' && scores.P2 > scores.P1 ? (
+            <>
+              <Frown size={120} className="text-rose-500 drop-shadow-[0_0_30px_rgba(244,63,94,0.4)] animate-pulse" />
+              <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-rose-200 to-rose-400 classic-title">انتهاء المسابقة!</h1>
+              <div className="text-2xl font-bold bg-slate-900/60 border border-white/10 px-8 py-4 rounded-2xl max-w-md shadow-lg leading-relaxed">
+                للأسف خسرت، مزيد من الاجتهاد في المرات القادمة
+              </div>
+            </>
+          ) : (
+            <>
+              <Award size={120} className="text-yellow-400 drop-shadow-[0_0_30px_rgba(234,179,8,0.6)]" />
+              <h1 className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-200 to-yellow-500 classic-title">انتهاء المسابقة الكاملة!</h1>
+              <p className="text-2xl font-bold">الفائز النهائي بالتحدي:</p>
+              <div className="text-4xl font-black bg-blue-600/30 border border-blue-500/50 px-12 py-4 rounded-2xl shadow-lg">
+                 {scores.P1 > scores.P2 ? pNames.p1 : pNames.p2}
+              </div>
+            </>
+          )}
           {isSaving && <p className="text-sm text-blue-400 animate-pulse">جاري رصد النتائج في قاعدة البيانات...</p>}
           <button onClick={() => window.location.reload()} className="mt-8 px-8 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-lg font-bold flex items-center gap-2 transition active:scale-95 border border-white/10">
              <RotateCcw size={18}/> العودة للرئيسية
@@ -505,8 +532,10 @@ export default function App() {
 
       {activeQ && (
         <div className="fixed inset-0 z-[100] w-screen h-screen bg-black/95 flex items-center justify-center p-4 backdrop-blur-md">
-          <div className="glass-box border-2 flex flex-col w-full max-w-4xl rounded-[2rem] p-6 md:p-12 text-center space-y-8" style={{ borderColor: '#3b82f6' }}>
-            <div className="inline-block px-10 py-3 rounded-full font-black text-2xl shadow-lg self-center bg-blue-600">{activeQ.tile.label}</div>
+          <div className="glass-box border-2 flex flex-col w-full max-w-4xl rounded-[2rem] p-6 md:p-12 text-center space-y-8" style={{ borderColor: currentTurnColor }}>
+            <div className="inline-block px-10 py-3 rounded-full font-black text-2xl shadow-lg self-center text-white" style={{ backgroundColor: currentTurnColor }}>
+              {activeQ.tile.label}
+            </div>
             <h3 className="text-[clamp(1.3rem,3.5vh,2.8rem)] leading-tight font-black text-white" dangerouslySetInnerHTML={{ __html: activeQ.q }} />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full pt-4">
               {activeQ.opts.map((o, i) => (
